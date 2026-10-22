@@ -1,0 +1,25 @@
+{
+  "group_allowlist": {
+    "description": "群白名单（群号列表）",
+    "type": "list",
+    "items": {"type": "string"},
+    "hint": "为空表示所有群都可使用。非空时，只有列表中的群可以唤醒机器人；私聊与管理员不受影响。在群里发送 /guard 可查看群号。",
+    "default": []
+  },
+  "user_rate_limit_count": {
+    "description": "按用户限流：窗口内最多唤醒次数",
+    "type": "int",
+    "hint": "0 表示不限制。只统计 @机器人、私聊和指令等已唤醒消息。管理员不受限。",
+    "default": 6
+  },
+  "user_rate_limit_window": {
+    "description": "按用户限流：窗口长度（秒）",
+    "type": "int",
+    "default": 60
+  },
+  "notify_on_limit": {
+    "description": "触发限流时提示用户（每个窗口最多提示一次）",
+    "type": "bool",
+    "default": true
+  }
+}

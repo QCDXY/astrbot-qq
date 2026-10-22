@@ -1,0 +1,32 @@
+# ---- 密钥与本地环境 ----
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+
+# ---- 运行数据：AstrBot 配置/数据库/日志，NapCat QQ 登录态/二维码/配置 ----
+data/
+!data/.gitkeep
+logs/
+*.log
+qrcode*.png
+cache/
+
+# ---- Python / 测试 ----
+.venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.pytest_tmp/
+.ruff_cache/
+.coverage
+htmlcov/
+test-reports/
+
+# ---- 编辑器 / 系统 ----
+.idea/
+.vscode/
+*.swp
+.DS_Store
+Thumbs.db

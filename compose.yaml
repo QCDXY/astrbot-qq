@@ -1,0 +1,111 @@
+# AstrBot + NapCat QQ 机器人
+#
+# 消息链路：QQ -> NapCat -> OneBot v11 反向 WebSocket -> AstrBot -> LLM API
+#   - AstrBot 在容器网络内监听 0.0.0.0:6199（不映射到宿主机）
+#   - NapCat 作为客户端连接 ws://astrbot:6199/ws（通过服务名解析，不依赖容器 IP）
+#   - 两个管理界面默认只绑定宿主机 127.0.0.1
+#
+# 参考：https://github.com/NapNeko/NapCat-Docker/blob/main/compose/astrbot.yml
+#
+# 启动：docker compose up -d        停止：docker compose down
+
+name: astrbot-qq
+
+x-logging: &default-logging
+  driver: json-file
+  options:
+    max-size: "10m"
+    max-file: "3"
+
+services:
+  # 一次性初始化：根据 .env 生成/同步两端的 OneBot 连接配置（令牌、地址），
+  # 并在首次部署时写入 AstrBot 的安全默认值。已有配置中的其他字段不会被改动。
+  init:
+    image: ${ASTRBOT_IMAGE:-soulter/astrbot:v4.29.1}
+    entrypoint: ["python", "/project/scripts/render_config.py"]
+    command: ["--astrbot-data", "/AstrBot/data", "--napcat-config", "/napcat/config"]
+    environment:
+      # 为空或仍是示例值时 init 会失败并给出提示，astrbot/napcat 不会启动
+      ONEBOT_ACCESS_TOKEN: ${ONEBOT_ACCESS_TOKEN:-}
+      ONEBOT_WS_URL: ws://astrbot:6199/ws
+      NAPCAT_WEBUI_TOKEN: ${NAPCAT_WEBUI_TOKEN:-}
+      # 仅用于提前校验密码强度（避免 AstrBot 启动后才报错），不会写入任何文件
+      ASTRBOT_DASHBOARD_INITIAL_PASSWORD: ${ASTRBOT_DASHBOARD_INITIAL_PASSWORD:-}
+      ADMIN_QQ: ${ADMIN_QQ:-}
+      LLM_BASE_URL: ${LLM_BASE_URL:-}
+      LLM_MODEL: ${LLM_MODEL:-}
+      TZ: ${TZ:-Asia/Shanghai}
+    volumes:
+      - ./scripts:/project/scripts:ro
+      - ./data/astrbot:/AstrBot/data
+      - ./data/napcat/config:/napcat/config
+    network_mode: none
+    restart: "no"
+    logging: *default-logging
+
+  astrbot:
+    image: ${ASTRBOT_IMAGE:-soulter/astrbot:v4.29.1}
+    container_name: astrbot
+    restart: unless-stopped
+    depends_on:
+      init:
+        condition: service_completed_successfully
+    security_opt:
+      - no-new-privileges:true
+    # AstrBot 会校验 ASTRBOT_DASHBOARD_INITIAL_PASSWORD，空字符串会导致启动失败；
+    # 未设置时先 unset，让 AstrBot 随机生成初始密码。其余与镜像默认 CMD（python main.py）一致。
+    command: ["sh", "-c", '[ -n "$${ASTRBOT_DASHBOARD_INITIAL_PASSWORD}" ] || unset ASTRBOT_DASHBOARD_INITIAL_PASSWORD; exec python main.py']
+    environment:
+      TZ: ${TZ:-Asia/Shanghai}
+      # 模型 API Key 只通过环境变量注入；配置文件中保存的是 "$LLM_API_KEY" 引用
+      LLM_API_KEY: ${LLM_API_KEY:-}
+      ASTRBOT_DASHBOARD_INITIAL_PASSWORD: ${ASTRBOT_DASHBOARD_INITIAL_PASSWORD:-}
+    ports:
+      # AstrBot WebUI，仅本机可访问
+      - "${WEBUI_BIND_HOST:-127.0.0.1}:${ASTRBOT_WEBUI_PORT:-6185}:6185"
+    expose:
+      # OneBot v11 反向 WebSocket，仅供容器网络内的 NapCat 使用，不映射到宿主机
+      - "6199"
+    volumes:
+      - ./data/astrbot:/AstrBot/data
+      - ./plugins/astrbot_plugin_qq_guard:/AstrBot/data/plugins/astrbot_plugin_qq_guard
+    networks:
+      - botnet
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "-o", "/dev/null", "http://127.0.0.1:6185/"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 60s
+    logging: *default-logging
+
+  napcat:
+    image: ${NAPCAT_IMAGE:-mlikiowa/napcat-docker:v4.18.41}
+    container_name: napcat
+    restart: unless-stopped
+    depends_on:
+      init:
+        condition: service_completed_successfully
+      astrbot:
+        condition: service_started
+    environment:
+      TZ: ${TZ:-Asia/Shanghai}
+      NAPCAT_UID: ${NAPCAT_UID:-1000}
+      NAPCAT_GID: ${NAPCAT_GID:-1000}
+      # 仅在 webui.json 不存在时生效
+      WEBUI_TOKEN: ${NAPCAT_WEBUI_TOKEN:-}
+      # 可选：快速登录账号
+      ACCOUNT: ${QQ_ACCOUNT:-}
+    ports:
+      # NapCat WebUI（扫码登录），仅本机可访问
+      - "${WEBUI_BIND_HOST:-127.0.0.1}:${NAPCAT_WEBUI_PORT:-6099}:6099"
+    volumes:
+      - ./data/napcat/config:/app/napcat/config
+      - ./data/napcat/qq:/app/.config/QQ
+    networks:
+      - botnet
+    logging: *default-logging
+
+networks:
+  botnet:
+    driver: bridge
