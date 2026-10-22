@@ -61,7 +61,7 @@
 | --- | --- | --- |
 | 项目结构完整，配置文件和文档齐全 | 通过 | `test_required_files_exist`；README、docs/、scripts/、tests/、plugins/ |
 | Docker Compose 配置校验通过 | 通过 | 官方 Compose JSON Schema 校验 + `docker compose config`（v5.6.1）校验 |
-| Docker 可用时 AstrBot 和 NapCat 容器可以启动 | **未执行（待人工联调）** | 本机无 Docker 引擎。启动命令、入口、卷路径已对照两个镜像的官方 Dockerfile / entrypoint 源码核对 |
+| Docker 可用时 AstrBot 和 NapCat 容器可以启动 | 通过 | 安装 Docker Desktop 后实测，见第 5 节 |
 | 两个服务的网络配置及 WebSocket 目标地址正确 | 通过 | 同一 `botnet` 网络、服务名 `astrbot`、`ws://astrbot:6199/ws`、6199 不映射宿主机；静态测试 + 配置单元测试 |
 | 关键消息处理逻辑通过模拟测试 | 通过 | 第 2 节集成测试 |
 | 配置持久化、重启恢复、合理的安全默认值 | 通过 | 卷映射静态测试；重启集成测试；WebUI 仅绑定 127.0.0.1、令牌校验、`no-new-privileges`、日志轮转、`restart: unless-stopped` |
@@ -81,16 +81,37 @@
 4. **AstrBot 配置文件带 UTF-8 BOM**：读取时统一使用 `utf-8-sig`。
 5. 测试发现 AstrBot 在回复发出后才异步保存对话历史；重启测试改为确认历史已落库后再停止进程。
 
-## 5. 待人工联调（需要用户授权/凭据）
+## 5. 真实环境联调结果（2026-10-23）
 
-以下项目**未通过、也未声称通过**，需要在装有 Docker 的机器上、使用真实 QQ 账号与真实 API Key 完成：
+环境：Windows 11 + Docker Desktop 29.9.2（Compose v5.6.1），机器人 QQ <机器人QQ号>，管理员 QQ <管理员QQ号>，
+模型 DeepSeek `deepseek-flash`（`LLM_BASE_URL=https://api.deepseek.com`）。
 
-1. `docker compose up -d`：init 退出码 0，astrbot 变为 healthy，napcat 运行中；
-2. NapCat WebUI（`http://127.0.0.1:6099/webui`）扫码登录；
-3. AstrBot 日志出现 `aiocqhttp(OneBot v11) 适配器已连接。`，`scripts/doctor.*` 全部通过；
-4. AstrBot WebUI「模型提供商」中测试真实模型连通；
-5. 私聊收到真实模型回复；群里 @ 机器人收到回复、不 @ 不回复；
-6. `docker compose restart` 后无需重新扫码，且上下文仍在。
+| 项目 | 结果 | 证据 |
+| --- | --- | --- |
+| `docker compose up -d` | 通过 | init `Exited (0)` 并生成两端配置；astrbot `healthy`；napcat 运行，重启次数 0 |
+| 端口与网络 | 通过 | 6185/6099 仅绑定 `127.0.0.1` 且返回 200；6199 未映射；napcat → `astrbot:6199` TCP 连通 |
+| `doctor.ps1` / `doctor.sh` | 通过 | 登录后全部 OK，无警告 |
+| 扫码登录 | 通过 | 人工扫码；登录后 NapCat 生成 `onebot11_<机器人QQ号>.json`，init `--check` 确认令牌/地址一致 |
+| OneBot 连接 | 通过 | `aiocqhttp(OneBot v11) 适配器已连接。` |
+| 私聊真实模型回复 | 通过 | `你好` → DeepSeek 回复，约 1.4 秒 |
+| 会话上下文 | 通过 | `我的暗号是蓝鲸` → `我的暗号是什么？` → `你的暗号是 **蓝鲸**` |
+| 内置指令 | 通过 | 私聊 `/help`、`/provider`（管理员权限生效） |
+| 群聊 @ 触发 | 通过 | 群 <测试群号> 中 `@机器人 /guard`、`@机器人 /provider` 正常回复 |
+| 群聊不 @ 不回复 | 通过 | 机器人所在多个群持续有他人消息，NapCat 日志中无任何对应的发送记录 |
+| 群白名单生效配置 | 通过 | `group_allowlist=["<测试群号>"]`，插件日志 `群白名单 1 个`；`/guard` 显示本群允许 |
+| AstrBot 重启后自动重连 | 通过 | `docker compose restart astrbot` 后 4 秒内重新连接，无需操作 NapCat |
+| `docker compose down` + `up -d` | 通过（修复后） | 免扫码快速登录，22 秒内重连；WebUI 密码、令牌、群白名单、对话历史均保留，重启后仍答出“蓝鲸” |
+
+联调中发现并修复：
+
+1. **容器重建后 QQ 登录态失效**（“快速登录错误：登录态已失效”）：QQ 把登录态与设备特征绑定，而容器重建时
+   MAC 地址随机变化、主机名为随机容器 ID（镜像入口脚本试图改名但无权限）。修复：`compose.yaml` 为 napcat 固定
+   `hostname: napcat-qq` 与 `mac_address`（`NAPCAT_MAC_ADDRESS`），并增加静态测试。修复后 `down/up` 免扫码。
+2. **`doctor.sh` 在 Git Bash 下误报配置不一致**：MSYS 把容器内路径改写为 Windows 路径；脚本中设置 `MSYS_NO_PATHCONV=1`。
+3. **登录后 `doctor` 仍提示等待扫码**：日志中残留旧的二维码提示；已连接时不再提示。
+
+尚未在真实环境验证（自动化集成测试已覆盖）：非管理员在白名单外群聊被忽略、按用户限流提示、不同用户上下文隔离。
+另外 DeepSeek 回复中的 Markdown（如 `**加粗**`）在 QQ 中原样显示，可在「人格设定」中要求不使用 Markdown。
 
 ## 6. 启动与停止
 

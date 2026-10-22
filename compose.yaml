@@ -82,6 +82,9 @@ services:
   napcat:
     image: ${NAPCAT_IMAGE:-mlikiowa/napcat-docker:v4.18.41}
     container_name: napcat
+    # 固定主机名：默认主机名是随机容器 ID，每次重建都会变化，QQ 会视为新设备而使登录态失效
+    # （镜像入口脚本试图改名但无权限）。不要使用含 docker/container/lxc 或纯十六进制的名字。
+    hostname: napcat-qq
     restart: unless-stopped
     depends_on:
       init:
@@ -103,7 +106,10 @@ services:
       - ./data/napcat/config:/app/napcat/config
       - ./data/napcat/qq:/app/.config/QQ
     networks:
-      - botnet
+      botnet:
+        # QQ 把登录态与设备特征绑定；容器重建（down/up、升级镜像）后 MAC 若随机变化，
+        # 会提示“登录态已失效”而要求重新扫码。固定 MAC 可保持登录态（参考 NapCat-Docker 官方模板）。
+        mac_address: ${NAPCAT_MAC_ADDRESS:-02:42:ac:11:00:02}
     logging: *default-logging
 
 networks:

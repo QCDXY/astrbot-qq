@@ -21,6 +21,7 @@
 | `LLM_BASE_URL` | `https://api.openai.com/v1` | OpenAI 兼容接口地址，仅首次初始化写入 |
 | `LLM_MODEL` | `gpt-4o-mini` | 模型 ID，仅首次初始化写入 |
 | `NAPCAT_UID` / `NAPCAT_GID` | `1000` | NapCat 容器内运行用户；Linux 上应与 `data/` 目录所有者一致 |
+| `NAPCAT_MAC_ADDRESS` | `02:42:ac:11:00:02` | NapCat 容器固定 MAC。QQ 登录态与设备特征（MAC、主机名）绑定，固定后 `down/up`、升级镜像无需重新扫码；同机多个 NapCat 实例需各用不同值。主机名在 `compose.yaml` 中固定为 `napcat-qq` |
 
 “仅首次”的含义：对应配置文件已经存在时，这些变量不再覆盖，以 WebUI 中的修改为准。
 

@@ -2,6 +2,8 @@
 # 诊断 AstrBot + NapCat 部署：Docker、.env、Compose 配置、容器状态、两端令牌/地址、
 # 端口暴露、容器网络与日志中的连接状态。只读，不修改任何文件。
 set -uo pipefail
+# Git Bash (Windows) 会把 /AstrBot/data 这类容器内路径改写成 Windows 路径，这里关闭该转换
+export MSYS_NO_PATHCONV=1
 cd "$(dirname "$0")/.."
 failed=0
 pass() { printf '\033[32m[ OK ]\033[0m %s\n' "$1"; }
@@ -51,7 +53,8 @@ if grep -q '适配器已连接' <<<"$alog"; then pass "AstrBot 日志：OneBot �
 else warn "AstrBot 日志中未见 \"适配器已连接\"：NapCat 可能尚未登录 QQ 或令牌不匹配"; fi
 grep -qiE '403|401|Forbidden|Unauthorized' <<<"$alog" && warn "AstrBot 日志中出现 401/403：检查两端令牌"
 nlog="$(docker logs --tail 400 napcat 2>&1 || true)"
-grep -qiE '二维码|qrcode' <<<"$nlog" && warn "NapCat 正在等待扫码登录：打开 NapCat WebUI 扫码"
+# 已连接说明已登录；否则日志里的旧二维码提示才有意义
+if ! grep -q '适配器已连接' <<<"$alog" && grep -qiE '二维码|qrcode' <<<"$nlog"; then warn "NapCat 正在等待扫码登录：打开 NapCat WebUI 扫码"; fi
 grep -qiE 'ECONNREFUSED|ENOTFOUND' <<<"$nlog" && warn "NapCat 连接 AstrBot 失败，将按 reconnectInterval 自动重试"
 
 echo

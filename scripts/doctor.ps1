@@ -60,7 +60,8 @@ $alog = docker logs --tail 400 astrbot 2>&1 | Out-String
 if ($alog -match '适配器已连接') { Pass 'AstrBot 日志：OneBot 适配器已连接（NapCat 已接入）' } else { Warn 'AstrBot 日志中未见 "适配器已连接"：NapCat 可能尚未登录 QQ 或令牌不匹配' }
 if ($alog -match '(?i)403|401|Forbidden|Unauthorized') { Warn 'AstrBot 日志中出现 401/403：检查两端令牌' }
 $nlog = docker logs --tail 400 napcat 2>&1 | Out-String
-if ($nlog -match '(?i)二维码|qrcode') { Warn 'NapCat 正在等待扫码登录：打开 NapCat WebUI 扫码' }
+# 已连接说明已登录；否则日志里的旧二维码提示才有意义
+if ($alog -notmatch '适配器已连接' -and $nlog -match '(?i)二维码|qrcode') { Warn 'NapCat 正在等待扫码登录：打开 NapCat WebUI 扫码' }
 if ($nlog -match '(?i)ECONNREFUSED|ENOTFOUND') { Warn 'NapCat 连接 AstrBot 失败（ECONNREFUSED/ENOTFOUND），将按 reconnectInterval 自动重试' }
 
 Write-Host ''

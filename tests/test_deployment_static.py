@@ -166,13 +166,25 @@ def test_services_and_pinned_images(compose):
 
 def test_shared_network_and_service_name_resolution(compose):
     services = compose["services"]
-    assert services["astrbot"]["networks"] == services["napcat"]["networks"] == ["botnet"]
+    assert services["astrbot"]["networks"] == ["botnet"]
+    assert list(services["napcat"]["networks"]) == ["botnet"]
     assert compose["networks"]["botnet"]["driver"] == "bridge"
     for svc in ("astrbot", "napcat"):
         assert "network_mode" not in services[svc]
         assert "ipv4_address" not in json.dumps(services[svc])
     init_env = services["init"]["environment"]
     assert init_env["ONEBOT_WS_URL"] == "ws://astrbot:6199/ws"
+
+
+def test_napcat_has_fixed_device_identity(compose):
+    """QQ 登录态与设备特征绑定：容器重建后 MAC 或主机名变化会导致“登录态已失效”，必须固定。"""
+    hostname = compose["services"]["napcat"]["hostname"]
+    # NapCat 入口脚本会尝试重命名这类主机名（容器内无权限而失败），所以必须避开
+    assert not re.search(r"docker|container|lxc", hostname) and not re.fullmatch(r"[a-f0-9]{12,}", hostname)
+    mac = compose["services"]["napcat"]["networks"]["botnet"]["mac_address"]
+    assert re.fullmatch(r"[0-9a-f]{2}(:[0-9a-f]{2}){5}", mac)
+    assert int(mac[:2], 16) & 0b10, "应使用本地管理地址（第一个字节的第 2 位为 1）"
+    assert not int(mac[:2], 16) & 0b1, "不能是组播地址"
 
 
 def test_ports_bound_to_localhost_and_onebot_not_published(compose):

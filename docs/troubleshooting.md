@@ -91,7 +91,8 @@ sudo chown -R "$(id -u):$(id -g)" data/napcat
 | 不知道 WebUI 令牌 | `.env` 中的 `NAPCAT_WEBUI_TOKEN`；如为空，看 `docker compose logs napcat` |
 | 二维码过期 | 在 WebUI 中刷新，或 `docker compose restart napcat` |
 | 扫码后提示需要验证 / 登录失败 | 按手机 QQ 提示人工完成验证；频繁失败可能被风控，建议换网络环境稍后重试或更换账号。本项目不提供绕过手段 |
-| 重启后要求重新扫码 | 确认 `data/napcat/qq` 已持久化且有写权限；QQ 侧也可能主动要求重新验证 |
+| 重启后要求重新扫码，日志出现“快速登录错误：登录态已失效” | QQ 把登录态与设备特征绑定。确认 `compose.yaml` 中 napcat 的 `hostname: napcat-qq` 与 `mac_address`（`NAPCAT_MAC_ADDRESS`）没有被删除或修改，且 `data/napcat/qq` 已持久化、有写权限；修改过这两项后需要重新扫码一次。QQ 侧也可能主动要求重新验证 |
+| 扫码登录成了错误的账号 | 用正确账号重新扫码即可：`docker compose restart napcat` 后打开 WebUI 扫码。误登录账号的会话数据仍在 `data/napcat/`，可在该账号手机端「登录设备管理」中下线 |
 | 版本过旧无法登录 | 更新 `NAPCAT_IMAGE` 到最新发布标签后 `docker compose pull && docker compose up -d` |
 
 ## 对话阶段

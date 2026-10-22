@@ -244,7 +244,7 @@ docker compose logs astrbot | grep "适配器已连接"
 | --- | --- |
 | `data/astrbot/` | AstrBot 配置 `cmd_config.json`、数据库（对话历史、人格等）、插件配置、日志 |
 | `data/napcat/config/` | NapCat 配置（OneBot 连接、WebUI） |
-| `data/napcat/qq/` | QQ 登录态（敏感，切勿外传） |
+| `data/napcat/qq/` | QQ 登录态（敏感，切勿外传）。登录态还与容器的主机名和 MAC 绑定，`compose.yaml` 已将其固定，请勿删除 |
 
 **备份**：停止容器后复制整个 `data/` 目录（和 `.env`）即可；恢复时放回原处再启动。
 
@@ -313,16 +313,19 @@ uv run pytest -m "not integration"   # 只跑快速的静态/单元测试
 
 最近一次测试结果见 [docs/acceptance-report.md](docs/acceptance-report.md)。
 
-## 7. 待人工联调项目
+## 7. 真实环境联调
 
-以下步骤需要真实 QQ 账号、手机扫码和真实模型 API Key，自动化测试无法覆盖，状态为 **待人工联调**：
+以下项目需要真实 QQ 账号、手机扫码和真实模型 API Key，已于 2026-10-23 在 Windows + Docker Desktop 上人工联调通过
+（详见 [验收报告](docs/acceptance-report.md#5-真实环境联调结果2026-10-23)）：
 
-- [ ] 在装有 Docker 的机器上 `docker compose up -d`，三个服务正常启动（`init` 退出码 0，`astrbot` healthy）
-- [ ] NapCat WebUI 扫码登录成功，`data/napcat/qq/` 中生成登录态
-- [ ] AstrBot 日志出现 `aiocqhttp(OneBot v11) 适配器已连接。`，`doctor` 全部通过
-- [ ] 真实模型调用成功（WebUI「模型提供商」测试通过）
-- [ ] 私聊机器人收到模型回复；群里 @机器人 收到回复，不 @ 不回复
-- [ ] `docker compose restart` 后无需重新扫码即可继续对话，且上下文仍在
+- [x] `docker compose up -d`，三个服务正常启动（`init` 退出码 0，`astrbot` healthy）
+- [x] NapCat WebUI 扫码登录成功，`data/napcat/qq/` 中生成登录态
+- [x] AstrBot 日志出现 `aiocqhttp(OneBot v11) 适配器已连接。`，`doctor` 全部通过
+- [x] 真实模型调用成功（私聊收到 DeepSeek 回复）
+- [x] 私聊机器人收到模型回复；群里 @机器人 收到回复，不 @ 不回复
+- [x] `docker compose down` + `up -d` 后无需重新扫码即可继续对话，且上下文仍在
+
+在你自己的环境部署后，建议按同样的清单走一遍。尚未在真实环境验证（已由自动化测试覆盖）：白名单外群聊被忽略、按用户限流、不同用户上下文隔离。
 
 ## 8. 更多文档
 
