@@ -48,7 +48,8 @@
   "provider_ltm_settings": {"group_icl_enable": true, "group_message_max_cnt": 50},
   "provider_sources": [{"id": "llm", "type": "openai_chat_completion", "provider_type": "chat_completion",
                         "key": ["$LLM_API_KEY"], "api_base": "<LLM_BASE_URL>", "...": "..."}],
-  "provider": [{"id": "default_llm", "provider_source_id": "llm", "model": "<LLM_MODEL>", "modalities": ["text"], "enable": true}]
+  "provider": [{"id": "default_llm", "provider_source_id": "llm", "model": "<LLM_MODEL>", "modalities": ["text", "tool_use"], "enable": true}],
+  "provider_settings": {"web_search": false, "proactive_capability": {"add_cron_tools": false}}
 }
 ```
 
@@ -119,12 +120,36 @@ WebUI「插件」→ `astrbot_plugin_qq_guard` → 配置（保存在 `data/astr
 | `natural_chat_cooldown_seconds` | `60` | 机器人发言（含被 @ 的回复）后多久内不主动接话 |
 | `natural_chat_max_replies_per_hour` | `20` | 每群每小时主动发言上限，0 = 不主动发言 |
 | `natural_chat_context_size` | `20` | 判断时参考的最近消息条数 |
+| `blocked_llm_tools` | `["send_message_to_user", "future_task"]` | 不提供给模型的内置工具（见第 6 节）；清空表示不屏蔽 |
 
 群聊上下文由 AstrBot 内置的 `provider_ltm_settings.group_icl_enable` 提供（种子配置默认开启，保留最近 50 条），
 在 WebUI「配置文件」中可以关闭或调整条数。AstrBot 内置的“主动回复”（`active_reply`，按固定概率随机回复）保持关闭，
 由 qq_guard 的自然接话代替。
 
-## 6. 升级
+## 6. 联网搜索
+
+使用 AstrBot 内置的网页搜索（无需额外插件）。模型通过工具调用决定何时搜索，回答时可以引用搜索结果。
+
+1. 「模型提供商」中模型的能力（modalities）需包含 **tool_use**（工具调用），否则 AstrBot 会在请求前移除所有工具。
+   本项目的种子配置已默认包含；旧部署需在 WebUI 中勾选。
+2. 「配置文件」→ 网页搜索：开启 `web_search`，选择搜索提供商并填写其 API Key。可选提供商：
+   Tavily、BoCha（博查）、Brave、Firecrawl、百度 AI 搜索、Exa、AnySearch、DeepSeek、SerpApi。
+   使用 DeepSeek 模型时可选 **DeepSeek**，直接复用同一个 DeepSeek API Key（调用 `https://api.deepseek.com/v1/tools/search`）。
+3. 保存后生效。开启后模型会获得 `web_search_<提供商>`（及抓取网页全文的工具，若该提供商支持）。
+
+注意：
+
+- 搜索 Key 由 AstrBot 以明文保存在 `data/astrbot/cmd_config.json`（AstrBot 暂不支持像模型 Key 那样用 `$环境变量` 引用）。
+  `data/` 已被 `.gitignore` 排除，请勿外传该目录。
+- 开启 tool_use 后 AstrBot 还会自动提供 `send_message_to_user`（可向任意会话发消息、可发送本地文件）和
+  `future_task`（创建定时任务）。这两个工具对群聊不安全，qq_guard 插件的 `blocked_llm_tools` 默认将其屏蔽；
+  种子配置同时关闭了 `proactive_capability.add_cron_tools`。
+- 是否搜索由模型决定，人格设定会影响这一点：如果人格要求“像普通网友一样、不确定就说不知道”，模型可能较少主动搜索；
+  在提问中明确说“搜一下”会更可靠。
+- 模型知道“今天几号”依赖「配置文件」中的 `datetime_system_prompt`（默认开启）；关闭后模型不知道当前日期，
+  搜索“最新/今天”类问题的效果也会变差。
+
+## 7. 升级
 
 1. 备份 `data/`；
 2. 阅读 AstrBot / NapCat 的发布说明；

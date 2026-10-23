@@ -69,5 +69,17 @@
     "description": "自然接话：判断时参考的最近消息条数",
     "type": "int",
     "default": 20
+  },
+  "blocked_llm_tools": {
+    "description": "屏蔽的模型工具",
+    "type": "list",
+    "items": {
+      "type": "string"
+    },
+    "hint": "开启 tool_use（如联网搜索）后，这些 AstrBot 内置工具不会提供给模型。send_message_to_user 可向任意会话发消息并发送本地文件，future_task 可让任何人创建定时任务，默认都屏蔽。清空表示不屏蔽。",
+    "default": [
+      "send_message_to_user",
+      "future_task"
+    ]
   }
 }

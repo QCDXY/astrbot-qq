@@ -147,6 +147,7 @@ def test_seed_has_safe_defaults(dirs):
     assert conf["log_file_enable"] is True
     assert conf["config_version"] == 5
     assert conf["provider_ltm_settings"] == {"group_icl_enable": True, "group_message_max_cnt": 50}
+    assert conf["provider_settings"] == {"web_search": False, "proactive_capability": {"add_cron_tools": False}}
     assert "dashboard" not in conf  # 由 AstrBot 生成随机密码，不在种子中设置
 
 
@@ -163,6 +164,7 @@ def test_seed_llm_uses_env_reference_not_secret(dirs):
     assert source["type"] == "openai_chat_completion"
     assert provider["provider_source_id"] == source["id"]
     assert provider["model"] == "some-model"
+    assert provider["modalities"] == ["text", "tool_use"]
 
 
 def test_no_llm_seed_when_not_configured(dirs):

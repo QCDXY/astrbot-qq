@@ -125,7 +125,33 @@ def test_plugin_metadata_and_schema_are_valid():
     cfg = guard.GuardConfig.from_mapping({k: v.get("default") for k, v in schema.items()})
     assert {"group_allowlist", "user_rate_limit_count", "user_rate_limit_window", "notify_on_limit"} <= set(schema)
     assert all(k.startswith("natural_chat_") for k in set(schema) - {
-        "group_allowlist", "user_rate_limit_count", "user_rate_limit_window", "notify_on_limit"})
+        "group_allowlist", "user_rate_limit_count", "user_rate_limit_window", "notify_on_limit", "blocked_llm_tools"})
+    assert set(schema["blocked_llm_tools"]["default"]) == guard.DEFAULT_BLOCKED_LLM_TOOLS
     assert cfg.user_rate_limit_count > 0 and cfg.user_rate_limit_window > 0
     for item in schema.values():
         assert item["type"] in {"string", "int", "float", "bool", "list", "object", "text"}
+
+
+class FakeToolSet:
+    def __init__(self, names):
+        self._names = list(names)
+
+    def names(self):
+        return list(self._names)
+
+    def remove_tool(self, name):
+        self._names.remove(name)
+
+
+def test_default_blocked_tools_and_explicit_empty_list():
+    assert guard.GuardConfig.from_mapping({}).blocked_llm_tools == guard.DEFAULT_BLOCKED_LLM_TOOLS
+    assert guard.GuardConfig.from_mapping({"blocked_llm_tools": []}).blocked_llm_tools == frozenset()
+    assert guard.GuardConfig.from_mapping({"blocked_llm_tools": ["x"]}).blocked_llm_tools == {"x"}
+
+
+def test_strip_blocked_tools_keeps_web_search():
+    ts = FakeToolSet(["web_search_deepseek", "deepseek_fetch_web_page", "send_message_to_user", "future_task"])
+    removed = guard.strip_blocked_tools(ts, guard.DEFAULT_BLOCKED_LLM_TOOLS)
+    assert sorted(removed) == ["future_task", "send_message_to_user"]
+    assert ts.names() == ["web_search_deepseek", "deepseek_fetch_web_page"]
+    assert guard.strip_blocked_tools(None, guard.DEFAULT_BLOCKED_LLM_TOOLS) == []

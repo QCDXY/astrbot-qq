@@ -9,6 +9,9 @@ AstrBot 内置的会话白名单 / 会话级限流依旧有效，本插件在其
 群聊自然接话（natural_chat_groups 中的群）：机器人旁听群聊，在合适的时机不需要 @ 也会接话。
 真正的回复走 AstrBot 的正常对话流程（使用你的人格设定与会话历史，并由内置的群聊上下文
 功能注入最近的群消息）；本插件只决定“何时说话”，不修改人格提示词。
+
+工具屏蔽（blocked_llm_tools）：模型开启 tool_use（例如为了联网搜索）后，AstrBot 会自动挂载一些
+内置工具；在发给模型之前移除其中不适合群聊/公开场景的工具。
 """
 
 import asyncio
@@ -27,7 +30,7 @@ from .chatter import (
     build_reply_prompt,
     parse_decision,
 )
-from .guard import Guard, GuardConfig, MessageInfo, Verdict
+from .guard import Guard, GuardConfig, MessageInfo, Verdict, strip_blocked_tools
 
 
 class WokenOnly(CustomFilter):
@@ -44,12 +47,20 @@ class QQGuard(star.Star):
         self.guard = Guard(GuardConfig.from_mapping(dict(config or {})))
         self.chatter = Chatter(ChatterConfig.from_mapping(dict(config or {})))
         logger.info(
-            "[qq_guard] 已加载：群白名单 %s 个，按用户限流 %s 次/%s 秒，自然接话群 %s 个",
+            "[qq_guard] 已加载：群白名单 %s 个，按用户限流 %s 次/%s 秒，自然接话群 %s 个，屏蔽工具 %s",
             len(self.guard.config.group_allowlist),
             self.guard.config.user_rate_limit_count or "不限",
             self.guard.config.user_rate_limit_window,
             len(self.chatter.config.groups),
+            ",".join(sorted(self.guard.config.blocked_llm_tools)) or "无",
         )
+
+    @filter.on_llm_request()
+    async def remove_blocked_tools(self, event: AstrMessageEvent, req) -> None:  # noqa: ANN001
+        """AstrBot 挂载完工具、调用模型之前，移除被屏蔽的内置工具。"""
+        removed = strip_blocked_tools(req.func_tool, self.guard.config.blocked_llm_tools)
+        if removed:
+            logger.debug("[qq_guard] 已从本次请求移除工具：%s", ",".join(removed))
 
     def _chat_enabled(self, group_id: str) -> bool:
         return self.chatter.enabled_for(group_id) and self.guard.group_allowed(group_id)

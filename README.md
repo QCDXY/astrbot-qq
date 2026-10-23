@@ -245,7 +245,13 @@ docker compose logs astrbot | grep "适配器已连接"
 
 每次“判断”都会调用一次模型（输出只有一个词，费用很低），频率大约是“每累积 N 条消息最多一次”。
 
-### 3.5 日志
+### 3.5 联网搜索
+
+使用 AstrBot 内置的网页搜索，由模型在需要时自动调用。开启方式见 [配置指南 · 联网搜索](docs/configuration.md#6-联网搜索)：
+模型能力勾选 tool_use，「配置文件」中开启网页搜索并选择提供商（使用 DeepSeek 模型时可选 DeepSeek，复用同一个 Key）。
+本项目插件会屏蔽开启工具调用后不安全的内置工具（向任意会话发消息、创建定时任务）。
+
+### 3.6 日志
 
 - 实时日志：`docker compose logs -f astrbot napcat`
 - AstrBot 日志文件：`data/astrbot/logs/astrbot.log`（20 MB 轮转）；WebUI「数据与日志」中也可查看。

@@ -147,6 +147,8 @@ def build_astrbot_seed(settings: Settings) -> dict[str, Any]:
         # 群聊上下文：记录群消息，机器人回复时带上自上次发言以来的群聊内容；
         # 只保留最近 50 条，避免长时间不说话后一次注入过多内容
         "provider_ltm_settings": {"group_icl_enable": True, "group_message_max_cnt": 50},
+        # 不让模型创建定时任务（任何群友都能触发）；联网搜索默认关闭，需要搜索服务的 Key（见 docs/configuration.md）
+        "provider_settings": {"web_search": False, "proactive_capability": {"add_cron_tools": False}},
         "admins_id": settings.admin_ids or ["astrbot"],
         "wake_prefix": ["/"],
         "timezone": settings.timezone,
@@ -175,7 +177,8 @@ def build_astrbot_seed(settings: Settings) -> dict[str, Any]:
                 "id": LLM_PROVIDER_ID,
                 "provider_source_id": LLM_SOURCE_ID,
                 "model": settings.llm_model,
-                "modalities": ["text"],
+                # tool_use：允许联网搜索等工具；不适合公开场景的内置工具由 qq_guard 插件屏蔽
+                "modalities": ["text", "tool_use"],
                 "custom_extra_body": {},
                 "enable": True,
             }

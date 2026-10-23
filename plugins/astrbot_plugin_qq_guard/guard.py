@@ -79,22 +79,42 @@ class SlidingWindowLimiter:
             del self._hits[k]
 
 
+# 开启 tool_use 后 AstrBot 会自动挂载的内置工具中，不适合群聊/公开场景的：
+# send_message_to_user 可向任意会话发消息、可发送本地文件（例如含密钥的配置）；
+# future_task 可让任何人创建定时任务。
+DEFAULT_BLOCKED_LLM_TOOLS = frozenset({"send_message_to_user", "future_task"})
+
+
 @dataclass
 class GuardConfig:
     group_allowlist: frozenset[str] = field(default_factory=frozenset)
     user_rate_limit_count: int = 0
     user_rate_limit_window: int = 60
     notify_on_limit: bool = True
+    blocked_llm_tools: frozenset[str] = DEFAULT_BLOCKED_LLM_TOOLS
 
     @classmethod
     def from_mapping(cls, m: dict | None) -> GuardConfig:
         m = m or {}
+        blocked = m.get("blocked_llm_tools")
         return cls(
             group_allowlist=parse_id_list(m.get("group_allowlist")),
             user_rate_limit_count=_as_int(m.get("user_rate_limit_count"), 0),
             user_rate_limit_window=_as_int(m.get("user_rate_limit_window"), 60),
             notify_on_limit=bool(m.get("notify_on_limit", True)),
+            # 未配置时使用默认屏蔽列表；显式配置为空列表表示不屏蔽
+            blocked_llm_tools=DEFAULT_BLOCKED_LLM_TOOLS if blocked is None else parse_id_list(blocked),
         )
+
+
+def strip_blocked_tools(tool_set, blocked: frozenset[str]) -> list[str]:
+    """从工具集中移除被屏蔽的工具，返回实际移除的名字。tool_set 需提供 names()/remove_tool()。"""
+    if tool_set is None:
+        return []
+    removed = [name for name in tool_set.names() if name in blocked]
+    for name in removed:
+        tool_set.remove_tool(name)
+    return removed
 
 
 def _as_int(v: object, default: int) -> int:
