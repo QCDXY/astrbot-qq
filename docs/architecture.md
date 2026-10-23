@@ -74,5 +74,22 @@ init (render_config.py) ──完成(exit 0)──▶ astrbot ──started─�
 - 用 `CustomFilter` 只匹配**已唤醒**的消息，普通群聊消息不会因为插件而进入后续流水线，也不消耗配额；
 - 以 `priority=100` 先于其他插件执行；拦截时调用 `event.should_call_llm(True)` 与 `event.stop_event()`，
   阻止默认 LLM 请求和后续处理；
-- 纯逻辑在 `guard.py`（无 AstrBot 依赖，单元测试覆盖），AstrBot 接线在 `main.py`；
+- 纯逻辑在 `guard.py` 与 `chatter.py`（无 AstrBot 依赖，单元测试覆盖），AstrBot 接线在 `main.py`；
 - 配置项由 `_conf_schema.json` 定义，可在 WebUI「插件」中修改。
+
+### 群聊自然接话
+
+```
+群消息 ──▶ AstrBot 内置群聊上下文记录（group_icl）
+       └─▶ qq_guard.natural_chat（priority=-10，在内置记录之后）
+             记录到近期消息 → 等待 quiet_seconds 停顿
+             └─ 仍是最新消息 且 冷却已过 且 新消息≥N（或提到称呼）且 未超每小时上限？
+                  └─ 是 → 一次简短的判断调用（独立系统提示，输出 REPLY/SKIP，不保存到对话）
+                         └─ REPLY → event.request_llm(...)：正常对话流程
+                                    （人格设定 + 会话历史 + 内置注入的群聊上下文）
+```
+
+- “何时说话”由插件决定，“说什么”由正常对话流程决定，人格提示词不被修改；
+- 判断调用是独立请求，不写入会话历史，因此“不接话”不会在对话里留下痕迹；
+- 机器人在群里的发言（包括被 @ 的回复）通过 `after_message_sent` 记录，用于冷却和判断上下文；
+- AstrBot 内置的 `active_reply` 只能按概率随机回复，且无法判断时机，因此保持关闭。

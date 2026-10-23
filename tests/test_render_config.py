@@ -146,6 +146,7 @@ def test_seed_has_safe_defaults(dirs):
     assert conf["wake_prefix"] == ["/"]
     assert conf["log_file_enable"] is True
     assert conf["config_version"] == 5
+    assert conf["provider_ltm_settings"] == {"group_icl_enable": True, "group_message_max_cnt": 50}
     assert "dashboard" not in conf  # 由 AstrBot 生成随机密码，不在种子中设置
 
 

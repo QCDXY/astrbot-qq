@@ -144,6 +144,9 @@ def build_astrbot_seed(settings: Settings) -> dict[str, Any]:
             "friend_message_needs_wake_prefix": False,
             "unique_session": False,
         },
+        # 群聊上下文：记录群消息，机器人回复时带上自上次发言以来的群聊内容；
+        # 只保留最近 50 条，避免长时间不说话后一次注入过多内容
+        "provider_ltm_settings": {"group_icl_enable": True, "group_message_max_cnt": 50},
         "admins_id": settings.admin_ids or ["astrbot"],
         "wake_prefix": ["/"],
         "timezone": settings.timezone,

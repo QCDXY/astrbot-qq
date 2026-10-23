@@ -108,6 +108,14 @@ sudo chown -R "$(id -u):$(id -g)" data/napcat
 4. 限流：日志出现 `[qq_guard] 用户 ... 触发限流` 或会话限流提示 → 调整插件 / 配置文件中的限流参数。
 5. 没有可用模型：日志提示未找到提供商 → 在「模型提供商」中添加并启用。
 
+### 自然接话太吵 / 太安静 / 完全不接话
+
+- 太吵：调大 `natural_chat_min_new_messages`、`natural_chat_cooldown_seconds`，或调小 `natural_chat_max_replies_per_hour`；
+- 太安静：调小 `natural_chat_min_new_messages`，或在 `natural_chat_name_triggers` 中加入大家对机器人的称呼；
+- 完全不接话：确认群号在 `natural_chat_groups` 中（群白名单非空时也要在白名单中），在群里发 `/guard` 应显示
+  `自然接话: 开启`；每次判断都会在日志中留下一行 `[qq_guard] 群 … 自然接话判断：接话/不接话`，没有这行说明还没满足判断条件（新消息条数、停顿、冷却），出现 `自然接话失败` 时查看后面的错误；
+- 判断由模型完成，模型认为不适合时就不会接话，这是预期行为。
+
 ### 群里 @ 了也不回复
 
 - 确认是 @ 了**机器人本身**（不是同名用户），或直接回复机器人的消息；

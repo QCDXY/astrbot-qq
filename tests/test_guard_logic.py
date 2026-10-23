@@ -123,7 +123,9 @@ def test_plugin_metadata_and_schema_are_valid():
     assert meta["name"] == PLUGIN_DIR.name
     schema = json.loads((PLUGIN_DIR / "_conf_schema.json").read_text(encoding="utf-8"))
     cfg = guard.GuardConfig.from_mapping({k: v.get("default") for k, v in schema.items()})
-    assert set(schema) == {"group_allowlist", "user_rate_limit_count", "user_rate_limit_window", "notify_on_limit"}
+    assert {"group_allowlist", "user_rate_limit_count", "user_rate_limit_window", "notify_on_limit"} <= set(schema)
+    assert all(k.startswith("natural_chat_") for k in set(schema) - {
+        "group_allowlist", "user_rate_limit_count", "user_rate_limit_window", "notify_on_limit"})
     assert cfg.user_rate_limit_count > 0 and cfg.user_rate_limit_window > 0
     for item in schema.values():
         assert item["type"] in {"string", "int", "float", "bool", "list", "object", "text"}

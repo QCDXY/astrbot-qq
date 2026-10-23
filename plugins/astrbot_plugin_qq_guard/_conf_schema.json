@@ -2,7 +2,9 @@
   "group_allowlist": {
     "description": "群白名单（群号列表）",
     "type": "list",
-    "items": {"type": "string"},
+    "items": {
+      "type": "string"
+    },
     "hint": "为空表示所有群都可使用。非空时，只有列表中的群可以唤醒机器人；私聊与管理员不受影响。在群里发送 /guard 可查看群号。",
     "default": []
   },
@@ -21,5 +23,51 @@
     "description": "触发限流时提示用户（每个窗口最多提示一次）",
     "type": "bool",
     "default": true
+  },
+  "natural_chat_groups": {
+    "description": "自然接话的群（群号列表）",
+    "type": "list",
+    "items": {
+      "type": "string"
+    },
+    "hint": "列表中的群里，机器人会旁听群聊，在合适的时机不需要 @ 也会自然接话（不会每句都回）。为空表示关闭。群白名单非空时，群还必须在白名单中。被 @ 时照常回复。",
+    "default": []
+  },
+  "natural_chat_name_triggers": {
+    "description": "机器人的称呼（触发词）",
+    "type": "list",
+    "items": {
+      "type": "string"
+    },
+    "hint": "群友提到这些词时会尽快判断是否接话（不必等累积多条消息）。第一个会作为机器人在群里的名字。",
+    "default": []
+  },
+  "natural_chat_min_new_messages": {
+    "description": "自然接话：至少累积多少条新消息才判断一次",
+    "type": "int",
+    "hint": "数值越大越安静、越省模型调用。",
+    "default": 3
+  },
+  "natural_chat_quiet_seconds": {
+    "description": "自然接话：群聊停顿多少秒后再判断",
+    "type": "int",
+    "hint": "避免在别人连续发言时插话。",
+    "default": 4
+  },
+  "natural_chat_cooldown_seconds": {
+    "description": "自然接话：机器人发言后的冷却时间（秒）",
+    "type": "int",
+    "default": 60
+  },
+  "natural_chat_max_replies_per_hour": {
+    "description": "自然接话：每个群每小时最多主动发言次数",
+    "type": "int",
+    "hint": "不影响被 @ 时的回复。0 表示不主动发言。",
+    "default": 20
+  },
+  "natural_chat_context_size": {
+    "description": "自然接话：判断时参考的最近消息条数",
+    "type": "int",
+    "default": 20
   }
 }

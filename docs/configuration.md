@@ -45,6 +45,7 @@
   "admins_id": ["<ADMIN_QQ>"],
   "wake_prefix": ["/"],
   "log_file_enable": true, "log_file_path": "logs/astrbot.log", "log_file_max_mb": 20,
+  "provider_ltm_settings": {"group_icl_enable": true, "group_message_max_cnt": 50},
   "provider_sources": [{"id": "llm", "type": "openai_chat_completion", "provider_type": "chat_completion",
                         "key": ["$LLM_API_KEY"], "api_base": "<LLM_BASE_URL>", "...": "..."}],
   "provider": [{"id": "default_llm", "provider_source_id": "llm", "model": "<LLM_MODEL>", "modalities": ["text"], "enable": true}]
@@ -111,6 +112,17 @@ WebUI「插件」→ `astrbot_plugin_qq_guard` → 配置（保存在 `data/astr
 | `user_rate_limit_count` | `6` | 每个用户在窗口内最多唤醒次数，0 = 不限 |
 | `user_rate_limit_window` | `60` | 窗口长度（秒） |
 | `notify_on_limit` | `true` | 超限时是否提示（每个窗口最多一次） |
+| `natural_chat_groups` | `[]` | 开启“群聊自然接话”的群号；为空 = 关闭。群白名单非空时还需在白名单内 |
+| `natural_chat_name_triggers` | `[]` | 机器人的称呼；群友提到时尽快判断是否接话。第一个作为判断时机器人的名字 |
+| `natural_chat_min_new_messages` | `3` | 至少累积多少条新消息才判断一次 |
+| `natural_chat_quiet_seconds` | `4` | 群聊停顿多少秒后再判断（停顿期间有新消息则由最新那条负责判断） |
+| `natural_chat_cooldown_seconds` | `60` | 机器人发言（含被 @ 的回复）后多久内不主动接话 |
+| `natural_chat_max_replies_per_hour` | `20` | 每群每小时主动发言上限，0 = 不主动发言 |
+| `natural_chat_context_size` | `20` | 判断时参考的最近消息条数 |
+
+群聊上下文由 AstrBot 内置的 `provider_ltm_settings.group_icl_enable` 提供（种子配置默认开启，保留最近 50 条），
+在 WebUI「配置文件」中可以关闭或调整条数。AstrBot 内置的“主动回复”（`active_reply`，按固定概率随机回复）保持关闭，
+由 qq_guard 的自然接话代替。
 
 ## 6. 升级
 

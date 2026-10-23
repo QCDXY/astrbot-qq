@@ -16,6 +16,8 @@ from typing import Any
 
 from aiohttp import web
 
+DECISION_MARKER = "【群聊接话判断】"  # 与 plugins/astrbot_plugin_qq_guard/chatter.py 保持一致
+
 _REMINDER = re.compile(r"<system_reminder>.*?</system_reminder>", re.S)
 
 
@@ -35,6 +37,8 @@ class MockLLM:
     expected_key: str = "test-llm-key"
     model: str = "mock-model"
     requests: list[dict[str, Any]] = field(default_factory=list)
+    # qq_guard 自然接话的“是否接话”判断请求单独记录：含 #skip 时回答 SKIP，否则 REPLY
+    decision_requests: list[dict[str, Any]] = field(default_factory=list)
     auth_headers: list[str] = field(default_factory=list)
     port: int = 0
     _runner: web.AppRunner | None = None
@@ -53,10 +57,14 @@ class MockLLM:
                 {"error": {"message": "invalid api key", "type": "invalid_request_error"}}, status=401
             )
         body = await request.json()
-        self.requests.append(body)
         users = self.user_messages(body)
         last = users[-1] if users else ""
-        reply = f"MOCK_REPLY#{len(self.requests)}: {last.strip()}"
+        if DECISION_MARKER in last:
+            self.decision_requests.append(body)
+            reply = "SKIP" if "#skip" in last else "REPLY"
+        else:
+            self.requests.append(body)
+            reply = f"MOCK_REPLY#{len(self.requests)}: {last.strip()}"
         created = int(time.time())
         if body.get("stream"):
             resp = web.StreamResponse(headers={"Content-Type": "text/event-stream"})
