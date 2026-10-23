@@ -88,12 +88,40 @@ docker compose run --rm --no-deps init --astrbot-data /AstrBot/data --napcat-con
 | DeepSeek | `https://api.deepseek.com/v1` |
 | 其他兼容服务 / 自建网关 / 本地 Ollama 等 | 服务提供的 `/v1` 地址 |
 
+Claude（Anthropic）请不要走 OpenAI 兼容接口，原因与配置方法见 [3.1](#31-使用-claudeanthropic提示缓存)。
+
 切换方式：
 
 1. **改 Key**：修改 `.env` 的 `LLM_API_KEY`，`docker compose up -d`。
 2. **改地址/模型**：WebUI「模型提供商」中编辑 `default_llm`。
 3. **新增供应商**：WebUI 中新增提供商，Key 可以填 `$某个环境变量名`，并在 `compose.yaml` 的 astrbot `environment` 中
    增加该变量（值写在 `.env`）；然后用 WebUI 或 `/provider` 切换。也可以使用 AstrBot 支持的其他原生供应商模板。
+
+### 3.1 使用 Claude（Anthropic）：提示缓存
+
+QQ 机器人每次请求都会带上人格提示词、工具定义、多轮对话历史和群聊上下文，其中绝大部分与上一次请求相同。
+Anthropic 的提示缓存让这部分按约 0.1 倍价格计费，但只有满足以下条件才会命中：
+
+1. **使用原生 Anthropic 提供商**：WebUI「模型提供商」→ 新增 →「Anthropic」模板（类型 `anthropic_chat_completion`，
+   地址 `https://api.anthropic.com`），Key 填 `$LLM_API_KEY`，模型填如 `claude-haiku-5-5`。
+   不要把 `https://api.anthropic.com/v1` 填进 OpenAI 兼容提供商：Anthropic 的 OpenAI 兼容接口**不支持提示缓存**，
+   命中率恒为 0。
+2. **对话历史也要打缓存断点**：AstrBot 4.29.1 的 Anthropic 适配器只在系统提示词上放了一个 `cache_control`，
+   只缓存“工具 + 人格提示词”，对话历史每轮全价重算（上游 [AstrBot#9388](https://github.com/AstrBotDevs/AstrBot/issues/9388)，
+   尚未修复）。人格提示词通常只有几百 token，而历史和群聊上下文有几千到几万 token，所以命中率只有个位数。
+   qq_guard 插件默认修补了这一点（`anthropic_history_cache`，见第 5 节）：每次请求在最后一条消息上再加一个断点，
+   下一轮就能读到这一轮写入的整段对话。断点只加在发出的请求里，不写入保存的会话历史；
+   自然接话的“是否接话”判断请求内容每次都不同，不加断点（写入缓存比普通输入贵）。
+3. **两次请求间隔不超过缓存有效期**：默认 5 分钟。群里经常隔十几分钟才有人说话时，可把插件的
+   `anthropic_cache_ttl` 改为 `1h`（写入价从 1.25 倍升到 2 倍，读取价不变）。
+4. **前缀足够长**：Claude Haiku 5.5 等新模型至少 512 token 才会缓存（Haiku 4.5 需 4096），更短的请求不缓存也不额外收费。
+
+以下情况会让一次请求的缓存失效（属正常现象，之后会重新命中）：修改人格/系统提示词、开关工具或插件、
+切换模型、`/reset` 或新建对话、历史超过轮数上限被截断（AstrBot 一次丢弃多轮，之后的若干轮又能命中）、
+LLM 上下文压缩。AstrBot 自带的“当前时间”等提醒放在当前用户消息末尾，不会破坏之前的缓存。
+
+验证：WebUI 的统计或 Anthropic 控制台中查看 `cache_read_input_tokens`；连续在同一会话聊几句，
+从第二句起读取量应接近上一轮的总输入量。astrbot 日志中应出现 `[qq_guard] Claude 对话历史缓存：开启`。
 
 ## 4. 人格与消息规则
 
@@ -121,6 +149,8 @@ WebUI「插件」→ `astrbot_plugin_qq_guard` → 配置（保存在 `data/astr
 | `natural_chat_max_replies_per_hour` | `20` | 每群每小时主动发言上限，0 = 不主动发言 |
 | `natural_chat_context_size` | `20` | 判断时参考的最近消息条数 |
 | `blocked_llm_tools` | `["send_message_to_user", "future_task"]` | 不提供给模型的内置工具（见第 6 节）；清空表示不屏蔽 |
+| `anthropic_history_cache` | `true` | Anthropic（Claude）提供商的对话历史也命中提示缓存（见 3.1）；对 OpenAI 兼容提供商无影响 |
+| `anthropic_cache_ttl` | `5m` | Claude 缓存有效期，`5m` 或 `1h` |
 
 群聊上下文由 AstrBot 内置的 `provider_ltm_settings.group_icl_enable` 提供（种子配置默认开启，保留最近 50 条），
 在 WebUI「配置文件」中可以关闭或调整条数。AstrBot 内置的“主动回复”（`active_reply`，按固定概率随机回复）保持关闭，

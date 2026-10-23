@@ -1,7 +1,7 @@
 name: astrbot_plugin_qq_guard
 display_name: QQ Guard
-desc: QQ 群白名单（不影响私聊）、按用户限流、自消息防护、群聊自然接话（无需 @），以及 /guard 状态查询。
+desc: QQ 群白名单（不影响私聊）、按用户限流、自消息防护、群聊自然接话（无需 @）、Claude 对话历史缓存，以及 /guard 状态查询。
 author: astrbot-qq
-version: 1.1.0
+version: 1.2.0
 repo: ""
 astrbot_version: ">=4.29,<5"

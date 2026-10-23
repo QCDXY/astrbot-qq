@@ -12,6 +12,9 @@ AstrBot 内置的会话白名单 / 会话级限流依旧有效，本插件在其
 
 工具屏蔽（blocked_llm_tools）：模型开启 tool_use（例如为了联网搜索）后，AstrBot 会自动挂载一些
 内置工具；在发给模型之前移除其中不适合群聊/公开场景的工具。
+
+Claude 对话历史缓存（anthropic_history_cache）：AstrBot 的 Anthropic 适配器只缓存系统提示词，
+对话历史每轮全价计算；本插件给每次请求的最后一条消息加缓存断点，让历史也能命中缓存（见 prompt_cache.py）。
 """
 
 import asyncio
@@ -31,6 +34,14 @@ from .chatter import (
     parse_decision,
 )
 from .guard import Guard, GuardConfig, MessageInfo, Verdict, strip_blocked_tools
+from .prompt_cache import install as install_history_cache
+from .prompt_cache import normalize_ttl, skip_history_cache
+from .prompt_cache import uninstall as uninstall_history_cache
+
+try:
+    from astrbot.core.provider.sources.anthropic_source import ProviderAnthropic
+except ImportError:  # 未安装 anthropic SDK 等情况
+    ProviderAnthropic = None
 
 
 class WokenOnly(CustomFilter):
@@ -54,6 +65,24 @@ class QQGuard(star.Star):
             len(self.chatter.config.groups),
             ",".join(sorted(self.guard.config.blocked_llm_tools)) or "无",
         )
+        self._setup_history_cache(dict(config or {}))
+
+    def _setup_history_cache(self, cfg: dict) -> None:
+        if ProviderAnthropic is None:
+            return
+        if not cfg.get("anthropic_history_cache", True):
+            uninstall_history_cache(ProviderAnthropic)
+            logger.info("[qq_guard] Claude 对话历史缓存：关闭")
+            return
+        ttl = normalize_ttl(cfg.get("anthropic_cache_ttl"))
+        if install_history_cache(ProviderAnthropic, ttl):
+            logger.info("[qq_guard] Claude 对话历史缓存：开启（TTL %s）", ttl)
+        else:
+            logger.warning("[qq_guard] 当前 AstrBot 版本的 Anthropic 适配器已变化，未启用对话历史缓存")
+
+    async def terminate(self) -> None:
+        if ProviderAnthropic is not None:
+            uninstall_history_cache(ProviderAnthropic)
 
     @filter.on_llm_request()
     async def remove_blocked_tools(self, event: AstrMessageEvent, req) -> None:  # noqa: ANN001
@@ -122,10 +151,12 @@ class QQGuard(star.Star):
             if not provider:
                 return
             started = time.monotonic()
-            decision = await provider.text_chat(
-                prompt=build_decision_prompt(self._bot_name(event), self.chatter.transcript(group_id)),
-                system_prompt=DECISION_SYSTEM_PROMPT,
-            )
+            # 判断请求的内容每次都不同，不值得写入缓存（写入比普通输入贵）
+            with skip_history_cache():
+                decision = await provider.text_chat(
+                    prompt=build_decision_prompt(self._bot_name(event), self.chatter.transcript(group_id)),
+                    system_prompt=DECISION_SYSTEM_PROMPT,
+                )
             answer = (decision.completion_text or "").strip()
             elapsed = time.monotonic() - started
             if not parse_decision(answer):

@@ -81,5 +81,18 @@
       "send_message_to_user",
       "future_task"
     ]
+  },
+  "anthropic_history_cache": {
+    "description": "Claude 对话历史缓存",
+    "type": "bool",
+    "hint": "使用 Anthropic（Claude）类型的模型提供商时，让对话历史也命中提示缓存。AstrBot 自带的只缓存系统提示词，多轮对话和群聊上下文每次都按全价计算。对 OpenAI 兼容接口无效（Anthropic 的 OpenAI 兼容接口不支持提示缓存）。",
+    "default": true
+  },
+  "anthropic_cache_ttl": {
+    "description": "Claude 缓存有效期",
+    "type": "string",
+    "options": ["5m", "1h"],
+    "hint": "5m：5 分钟内有下一条消息即可命中，写入价 1.25 倍。1h：适合聊天间隔常在 5~60 分钟的群，写入价 2 倍。",
+    "default": "5m"
   }
 }

@@ -51,6 +51,9 @@ async def test_web_search_tools_offered_and_risky_builtins_blocked(tmp_root, moc
         names = tool_names(req)
         assert SEARCH_TOOLS <= names, names
         assert not names & {"send_message_to_user", "future_task"}, names
-        assert "屏蔽工具 future_task,send_message_to_user" in bot.read_log()
+        log = bot.read_log()
+        assert "屏蔽工具 future_task,send_message_to_user" in log
+        # 插件在真实 AstrBot 中成功挂上 Claude 对话历史缓存（未变化的 Anthropic 适配器）
+        assert "Claude 对话历史缓存：开启（TTL 5m）" in log, log[-2000:]
     finally:
         bot.stop()
