@@ -1,0 +1,46 @@
+astrbot-qq
+Copyright (C) 2026 astrbot-qq contributors
+
+This program is free software: you can redistribute it and/or modify it under
+the terms of the GNU Affero General Public License as published by the Free
+Software Foundation, either version 3 of the License, or (at your option) any
+later version. See LICENSE for the full text.
+
+SPDX-License-Identifier: AGPL-3.0-or-later
+
+This program is distributed in the hope that it will be useful, but WITHOUT ANY
+WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A
+PARTICULAR PURPOSE.
+
+-------------------------------------------------------------------------------
+Third-party components
+-------------------------------------------------------------------------------
+
+AstrBot (https://github.com/AstrBotDevs/AstrBot)
+  License: AGPL-3.0-or-later, plus the AstrBot EULA (EULA.md in that repository).
+  Not included in this repository. compose.yaml pulls the official Docker image,
+  and the test suite installs the PyPI package. The qq_guard plugin
+  (plugins/astrbot_plugin_qq_guard) imports and runs inside AstrBot, which is why
+  this project is licensed under AGPL-3.0-or-later.
+
+NapCat / NapCatQQ (https://github.com/NapNeko/NapCatQQ)
+NapCat-Docker (https://github.com/NapNeko/NapCat-Docker)
+  License: "Limited Redistribution License for NapCat" (Copyright (C) 2024
+  Mlikiowa). It forbids commercial use, and modified NapCat code must not be
+  released publicly. NapCat-Docker publishes no license file.
+  Not included in this repository. compose.yaml only references the NapCat
+  Docker image, which users pull from Docker Hub themselves. This project talks
+  to NapCat only over the OneBot v11 protocol (WebSocket) as a separate program,
+  so NapCat is not covered by this project's license. Anyone who runs NapCat
+  through this deployment must comply with NapCat's own license, including its
+  ban on commercial use.
+
+Compose Specification JSON Schema (https://github.com/compose-spec/compose-spec)
+  File: tests/schemas/compose-spec.json, unmodified.
+  License: Apache-2.0, with the license text and NOTICE in tests/schemas/.
+
+Development and test dependencies (installed by uv, not included in this
+repository): pytest (MIT), pytest-asyncio (Apache-2.0), PyYAML (MIT),
+jsonschema (MIT), websockets (BSD-3-Clause), aiohttp (Apache-2.0 AND MIT),
+anthropic (Apache-2.0, pulled in through AstrBot). All are compatible with
+AGPL-3.0-or-later.

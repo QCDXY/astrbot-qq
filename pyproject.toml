@@ -4,6 +4,8 @@ name = "astrbot-qq"
 version = "1.0.0"
 description = "AstrBot + NapCat QQ 聊天机器人部署项目（配置、插件与测试）"
 requires-python = ">=3.12"
+license = "AGPL-3.0-or-later"
+license-files = ["LICENSE", "NOTICE", "tests/schemas/LICENSE", "tests/schemas/NOTICE"]
 
 [dependency-groups]
 dev = [

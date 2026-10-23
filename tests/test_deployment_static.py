@@ -93,6 +93,10 @@ def compose(raw_compose) -> dict:
         "plugins/astrbot_plugin_qq_guard/main.py",
         "plugins/astrbot_plugin_qq_guard/metadata.yaml",
         "plugins/astrbot_plugin_qq_guard/_conf_schema.json",
+        "LICENSE",
+        "NOTICE",
+        "tests/schemas/LICENSE",
+        "tests/schemas/NOTICE",
     ],
 )
 def test_required_files_exist(rel):

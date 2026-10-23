@@ -34,6 +34,7 @@ QQ ⇄ NapCat ──OneBot v11 反向 WS──▶ AstrBot ⇄ 大语言模型 AP
 6. [测试](#6-测试)
 7. [待人工联调项目](#7-待人工联调项目)
 8. [更多文档](#8-更多文档)
+9. [许可证](#9-许可证)
 
 ---
 
@@ -320,6 +321,8 @@ ssh -L 6185:127.0.0.1:6185 -L 6099:127.0.0.1:6099 user@your-server
 │   ├── configuration.md         # 配置指南
 │   ├── troubleshooting.md       # 故障排查
 │   └── acceptance-report.md     # 验收报告
+├── LICENSE                      # AGPL-3.0 许可证全文
+├── NOTICE                       # 版权声明与第三方组件许可证说明
 └── data/                        # 运行数据（自动创建，已被 .gitignore 排除）
 ```
 
@@ -365,3 +368,16 @@ uv run pytest -m "not integration"   # 只跑快速的静态/单元测试
 - [故障排查](docs/troubleshooting.md)
 - [验收报告](docs/acceptance-report.md)
 - 官方文档：[AstrBot](https://docs.astrbot.app/) · [AstrBot 接入 OneBot v11](https://docs.astrbot.app/platform/aiocqhttp.html) · [NapCat](https://napneko.github.io/)
+
+## 9. 许可证
+
+本项目以 [GNU AGPL-3.0-or-later](LICENSE) 发布。qq_guard 插件在 AstrBot（AGPL-3.0-or-later）进程内导入并运行，
+因此本项目采用与 AstrBot 相同的许可证。修改后对外提供服务（包括通过网络让他人使用）时，需要按 AGPL 第 13 条向用户提供对应源代码。
+
+本仓库不包含第三方程序的代码，各自的许可证照常适用（详见 [NOTICE](NOTICE)）：
+
+- **AstrBot**：AGPL-3.0-or-later，另需遵守其 [EULA](https://github.com/AstrBotDevs/AstrBot/blob/master/EULA.md)。
+- **NapCat**：[Limited Redistribution License](https://github.com/NapNeko/NapCatQQ/blob/main/LICENSE)，**禁止商业用途**，
+  且不得公开发布修改过的 NapCat 代码。本项目只引用其 Docker 镜像，通过 OneBot v11 协议与之通信，NapCat 不受本项目许可证约束；
+  使用本部署方案运行 NapCat 时须自行遵守其许可证。
+- **Compose 规范 JSON Schema**（`tests/schemas/compose-spec.json`，仅测试使用）：Apache-2.0，许可证与 NOTICE 见 `tests/schemas/`。
