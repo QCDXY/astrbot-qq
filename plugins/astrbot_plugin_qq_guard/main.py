@@ -13,6 +13,9 @@ AstrBot 内置的会话白名单 / 会话级限流依旧有效，本插件在其
 工具屏蔽（blocked_llm_tools）：模型开启 tool_use（例如为了联网搜索）后，AstrBot 会自动挂载一些
 内置工具；在发给模型之前移除其中不适合群聊/公开场景的工具。
 
+回复过滤：只含“（不回复）”的回复不发送（人格设定中的沉默标记）；机器人自己发起的群聊回复
+（自然接话、内置主动回复）调用模型失败时，不把“LLM 响应错误”发到群里。被 @ 或私聊时照常提示错误。
+
 Claude 对话历史缓存（anthropic_history_cache）：AstrBot 的 Anthropic 适配器只缓存系统提示词，
 对话历史每轮全价计算；本插件给每次请求的最后一条消息加缓存断点，让历史也能命中缓存（见 prompt_cache.py）。
 """
@@ -33,7 +36,7 @@ from .chatter import (
     build_reply_prompt,
     parse_decision,
 )
-from .guard import Guard, GuardConfig, MessageInfo, Verdict, strip_blocked_tools
+from .guard import Guard, GuardConfig, MessageInfo, Verdict, should_drop_reply, strip_blocked_tools
 from .prompt_cache import install as install_history_cache
 from .prompt_cache import normalize_ttl, skip_history_cache
 from .prompt_cache import uninstall as uninstall_history_cache
@@ -181,6 +184,24 @@ class QQGuard(star.Star):
             logger.error("[qq_guard] 群 %s 自然接话失败：%s", group_id, e)
         finally:
             self.chatter.end(group_id, replied)
+
+    @filter.on_decorating_result()
+    async def filter_reply(self, event: AstrMessageEvent) -> None:
+        """发送前过滤：清空结果链即不发送（AstrBot 的发送阶段会跳过空结果）。"""
+        result = event.get_result()
+        if not result or not result.chain:
+            return
+        unprompted = event.get_message_type() == MessageType.GROUP_MESSAGE and not event.is_at_or_wake_command
+        text = result.get_plain_text()
+        reason = should_drop_reply(text, unprompted=unprompted, config=self.guard.config)
+        if reason is None:
+            return
+        result.chain.clear()
+        where = f"群 {event.get_group_id()}" if event.get_group_id() else "私聊"
+        if reason == "silent":
+            logger.info("[qq_guard] %s 模型选择不回复，已不发送“%s”", where, text.strip()[:20])
+        else:
+            logger.warning("[qq_guard] %s 主动发起的回复调用模型失败，已不发到群里：%s", where, text.strip()[:200])
 
     @filter.after_message_sent()
     async def remember_bot_message(self, event: AstrMessageEvent):

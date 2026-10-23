@@ -92,6 +92,8 @@ class GuardConfig:
     user_rate_limit_window: int = 60
     notify_on_limit: bool = True
     blocked_llm_tools: frozenset[str] = DEFAULT_BLOCKED_LLM_TOOLS
+    drop_silent_replies: bool = True
+    hide_unprompted_errors: bool = True
 
     @classmethod
     def from_mapping(cls, m: dict | None) -> GuardConfig:
@@ -104,7 +106,41 @@ class GuardConfig:
             notify_on_limit=bool(m.get("notify_on_limit", True)),
             # 未配置时使用默认屏蔽列表；显式配置为空列表表示不屏蔽
             blocked_llm_tools=DEFAULT_BLOCKED_LLM_TOOLS if blocked is None else parse_id_list(blocked),
+            drop_silent_replies=bool(m.get("drop_silent_replies", True)),
+            hide_unprompted_errors=bool(m.get("hide_unprompted_errors", True)),
         )
+
+
+# 人格设定里用“（不回复）”表示保持沉默，模型有时会把它原样写出来
+_SILENT_WORDS = frozenset({"不回复"})
+_SILENT_TRIM = " \t\r\n()（）[]【】「」『』<>《》.。…!！~～"
+
+# AstrBot 把模型调用失败转换成的回复文本（未设置人格自定义错误消息时）
+_LLM_ERROR_PREFIXES = ("LLM 响应错误", "Error occurred during AI execution")
+
+
+def is_silent_reply(text: str | None) -> bool:
+    """回复是否只有“（不回复）”这类沉默标记（含各种括号、空白与句末标点）。"""
+    if not text:
+        return False
+    return text.strip(_SILENT_TRIM) in _SILENT_WORDS
+
+
+def is_llm_error_reply(text: str | None) -> bool:
+    return bool(text) and text.lstrip().startswith(_LLM_ERROR_PREFIXES)
+
+
+def should_drop_reply(text: str | None, *, unprompted: bool, config: GuardConfig) -> str | None:
+    """决定是否不发送这条回复，返回原因（None 表示照常发送）。
+
+    unprompted：机器人自己发起的回复（群聊自然接话、AstrBot 内置主动回复），
+    即群聊中没有被 @、回复或指令唤醒的消息。被 @ 或私聊时出错仍要让用户看到。
+    """
+    if config.drop_silent_replies and is_silent_reply(text):
+        return "silent"
+    if config.hide_unprompted_errors and unprompted and is_llm_error_reply(text):
+        return "error"
+    return None
 
 
 def strip_blocked_tools(tool_set, blocked: frozenset[str]) -> list[str]:

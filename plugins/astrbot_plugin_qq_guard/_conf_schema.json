@@ -91,8 +91,23 @@
   "anthropic_cache_ttl": {
     "description": "Claude 缓存有效期",
     "type": "string",
-    "options": ["5m", "1h"],
+    "options": [
+      "5m",
+      "1h"
+    ],
     "hint": "5m：5 分钟内有下一条消息即可命中，写入价 1.25 倍。1h：适合聊天间隔常在 5~60 分钟的群，写入价 2 倍。",
     "default": "5m"
+  },
+  "drop_silent_replies": {
+    "description": "不发送“（不回复）”",
+    "type": "bool",
+    "default": true,
+    "hint": "模型只回复“（不回复）”之类的沉默标记时不发送（人格设定中常用它表示保持沉默）。"
+  },
+  "hide_unprompted_errors": {
+    "description": "主动回复出错时不发到群里",
+    "type": "bool",
+    "default": true,
+    "hint": "机器人自己发起的群聊回复（自然接话、AstrBot 内置主动回复）调用模型失败时，不把“LLM 响应错误”发到群里，只写入日志。被 @ 或私聊时仍照常提示。"
   }
 }

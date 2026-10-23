@@ -125,7 +125,9 @@ def test_plugin_metadata_and_schema_are_valid():
     cfg = guard.GuardConfig.from_mapping({k: v.get("default") for k, v in schema.items()})
     assert {"group_allowlist", "user_rate_limit_count", "user_rate_limit_window", "notify_on_limit"} <= set(schema)
     assert all(k.startswith(("natural_chat_", "anthropic_")) for k in set(schema) - {
-        "group_allowlist", "user_rate_limit_count", "user_rate_limit_window", "notify_on_limit", "blocked_llm_tools"})
+        "group_allowlist", "user_rate_limit_count", "user_rate_limit_window", "notify_on_limit", "blocked_llm_tools",
+        "drop_silent_replies", "hide_unprompted_errors"})
+    assert schema["drop_silent_replies"]["default"] is True and schema["hide_unprompted_errors"]["default"] is True
     assert set(schema["blocked_llm_tools"]["default"]) == guard.DEFAULT_BLOCKED_LLM_TOOLS
     assert cfg.user_rate_limit_count > 0 and cfg.user_rate_limit_window > 0
     assert schema["anthropic_history_cache"]["default"] is True
@@ -157,3 +159,39 @@ def test_strip_blocked_tools_keeps_web_search():
     assert sorted(removed) == ["future_task", "send_message_to_user"]
     assert ts.names() == ["web_search_deepseek", "deepseek_fetch_web_page"]
     assert guard.strip_blocked_tools(None, guard.DEFAULT_BLOCKED_LLM_TOOLS) == []
+
+
+@pytest.mark.parametrize(
+    "text",
+    ["（不回复）", "(不回复)", " 【不回复】 ", "不回复", "（不回复）。", "「不回复」\n"],
+)
+def test_silent_markers_are_recognized(text):
+    assert guard.is_silent_reply(text)
+
+
+@pytest.mark.parametrize(
+    "text",
+    ["", None, "我先不回复了，你们聊", "（不回复，继续潜水）", "不回复你", "回复"],
+)
+def test_real_replies_are_not_silent(text):
+    assert not guard.is_silent_reply(text)
+
+
+def test_llm_error_reply_detection():
+    assert guard.is_llm_error_reply("LLM 响应错误: All chat models failed: EmptyModelOutputError: x")
+    assert guard.is_llm_error_reply("  LLM 响应错误: 未知错误")
+    assert not guard.is_llm_error_reply("模型说：LLM 响应错误是什么意思？")
+    assert not guard.is_llm_error_reply("")
+
+
+def test_should_drop_reply_policy():
+    cfg = guard.GuardConfig()
+    err = "LLM 响应错误: All chat models failed"
+    assert guard.should_drop_reply("（不回复）", unprompted=False, config=cfg) == "silent"
+    assert guard.should_drop_reply("（不回复）", unprompted=True, config=cfg) == "silent"
+    assert guard.should_drop_reply(err, unprompted=True, config=cfg) == "error"
+    assert guard.should_drop_reply(err, unprompted=False, config=cfg) is None, "被 @ / 私聊时错误照常提示"
+    assert guard.should_drop_reply("正常回复", unprompted=True, config=cfg) is None
+    off = guard.GuardConfig.from_mapping({"drop_silent_replies": False, "hide_unprompted_errors": False})
+    assert guard.should_drop_reply("（不回复）", unprompted=True, config=off) is None
+    assert guard.should_drop_reply(err, unprompted=True, config=off) is None

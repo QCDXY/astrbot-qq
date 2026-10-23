@@ -64,7 +64,12 @@ class MockLLM:
             reply = "SKIP" if "#skip" in last else "REPLY"
         else:
             self.requests.append(body)
-            reply = f"MOCK_REPLY#{len(self.requests)}: {last.strip()}"
+            if "#fail" in last:  # 模拟模型调用失败（AstrBot 会生成“LLM 响应错误”回复）
+                return web.json_response(
+                    {"error": {"message": "mock model failure", "type": "invalid_request_error"}}, status=400
+                )
+            # #silent：模拟模型按人格设定选择沉默，只写出“（不回复）”
+            reply = "（不回复）" if "#silent" in last else f"MOCK_REPLY#{len(self.requests)}: {last.strip()}"
         created = int(time.time())
         if body.get("stream"):
             resp = web.StreamResponse(headers={"Content-Type": "text/event-stream"})
